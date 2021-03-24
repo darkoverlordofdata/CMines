@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Categories=Game;
+Name=CMines
+StartupWMClass=CMines
+Comment=CMines
+Icon=/home/darko/Documents/GitHub/CMines/CMines.app/Resources/CMines.png
+Exec=/home/darko/.yarn/bin/electron /home/darko/Documents/GitHub/CMines/CMines.app

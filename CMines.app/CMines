@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+cd /home/darko/Documents/GitHub/CMines/CMines.app
+/usr/bin/npm start
