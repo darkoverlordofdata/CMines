@@ -1,0 +1,10 @@
+{
+  ApplicationName = "GMines";
+  ApplicationDescription = "GNUstep minesweeper game";
+  ApplicationRelease = "Mines 0.1";
+  FullVersionID = "0.1, July 2002";
+  Authors = ("Marko Riedel <mriedel@neuearbeit.de>");
+  Copyright = "Copyright (C) 2002 Free Software Foundation, Inc.";
+  CopyrightDescription = "Released under the GNU General Public License 2.0";
+}
+
