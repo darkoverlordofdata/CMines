@@ -1,6 +1,6 @@
 @import <Foundation/Foundation.j>
 @import <AppKit/AppKit.j>
-@import "Views.j"
+@import "SquareView.j"
 
 var DIMENSION    = 24;
 var SEPARATOR    = 10;
@@ -11,7 +11,7 @@ var MARGIN        = 6;
     CPWindow window;
     CPTextField timeField;
     CPTextField markField;
-    Square fields;//[8][8];
+    SquareView fields;//[8][8];
 
     int uncovered;
 
@@ -21,7 +21,6 @@ var MARGIN        = 6;
 
 - (void)applicationDidFinishLaunching:(CPNotification )aNotification
 {
-    fields = [Array(8), Array(8), Array(8), Array(8), Array(8), Array(8), Array(8), Array(8)];
 
     var inv = [CPInvocation 
               invocationWithMethodSignature: 
@@ -49,10 +48,14 @@ var MARGIN        = 6;
     var view  = [[CPView alloc] 
                 initWithFrame:
                     CPMakeRect(0, 0, DIMENSION*8, DIMENSION*8)];
-    for(var row=0; row<8; row++){
-        for(var col=0; col<8; col++){
+
+    fields = [Array(8), Array(8), Array(8), Array(8), 
+              Array(8), Array(8), Array(8), Array(8)];
+
+    for (var row=0; row<8; row++){
+        for (var col=0; col<8; col++){
             var spoint = CPMakePoint(row*DIMENSION, col*DIMENSION);
-            var field = [[Square alloc] initAtPoint:spoint
+            var field = [[SquareView alloc] initAtPoint:spoint
                     row:row col:col controller:self];
             [view addSubview:field];
             fields[row][col] = field;
@@ -104,9 +107,11 @@ var MARGIN        = 6;
     [window setMaxSize:frame.size];
 
     [window setContentView:boardBox];
+    
+    // several Unrecognized selector errors:
+
     // [window setReleasedWhenClosed:YES];
 
-    // RELEASE(view);
 
     [window center];
     console.log("makeGameWindow");
@@ -122,8 +127,8 @@ var MARGIN        = 6;
 
 - newGame:(id)sender
 {
-    for(var row=0; row<8; row++){
-        for(var col=0; col<8; col++){
+    for (var row=0; row<8; row++){
+        for (var col=0; col<8; col++){
             [fields[row][col] setDefaults];
         }
     }
@@ -131,7 +136,7 @@ var MARGIN        = 6;
     var mrow;
     var mcol;
 
-    for(var index=0; index<10; index++){
+    for (var index=0; index<10; index++){
         do {
             mrow = ~~(Math.random()*8); //lrand48()%8;
             mcol = ~~(Math.random()*8); //lrand48()%8;
@@ -140,24 +145,24 @@ var MARGIN        = 6;
         [fields[mrow][mcol] setMine:YES];
     }
 
-    for(row=0; row<8; row++){
-        for(col=0; col<8; col++){
+    for (row=0; row<8; row++){
+        for (col=0; col<8; col++){
             // int sx, sy, nb;
             var nb = 0;
-            for(var sx=-1; sx<=1; sx++){
-                for(var sy=-1; sy<=1; sy++){
+            for (var sx=-1; sx<=1; sx++){
+                for (var sy=-1; sy<=1; sy++){
                     var cx = row+sx, cy = col+sy;
-                    if(!(sx==0 && sy==0) &&
+                    if (!(sx==0 && sy==0) &&
                        (0<=cx && cx<8) &&
                        (0<=cy && cy<8)){
-                        if([fields[cx][cy] mine]==YES){
+                        if ([fields[cx][cy] mine]==YES){
                             nb++;
                         }
                     }
                 }
             }
 
-            if(nb>0){
+            if (nb>0){
                 [fields[row][col] setNeighbors:nb];
             }
         }
@@ -173,26 +178,26 @@ var MARGIN        = 6;
 }
 
 
-- uncoverRegion:(Square)item
+- uncoverRegion:(SquareView)item
 {
-    if([item covered]!=COV_COVERED || [item marked]==YES){
+    if ([item covered]!=COV_COVERED || [item marked]==YES){
         return self;
     }
 
     [item setCovered:COV_UNCOVERED];
     uncovered++;
 
-    if([item neighbors]>0){
+    if ([item neighbors]>0){
         return self;
     }
 
     var row = [item row]; 
     var col = [item col];
-    for(var sx=-1; sx<=1; sx++){
-        for(var sy=-1; sy<=1; sy++){
+    for (var sx=-1; sx<=1; sx++){
+        for (var sy=-1; sy<=1; sy++){
             var cx = row + sx;
             var cy = col + sy;
-            if(!(sx==0 && sy==0) &&
+            if (!(sx==0 && sy==0) &&
                (0<=cx && cx<8) &&
                (0<=cy && cy<8)){
                 [self uncoverRegion:fields[cx][cy]];
@@ -203,12 +208,12 @@ var MARGIN        = 6;
     return self;
 }
 
-- uncoverAll:(Square)item
+- uncoverAll:(SquareView)item
 {
-    for(var row=0; row<8; row++){
-        for(var col=0; col<8; col++){
+    for (var row=0; row<8; row++){
+        for (var col=0; col<8; col++){
             var other = fields[row][col];
-            if(other!=item){
+            if (other!=item){
                 [other setCovered:COV_UNCOVERED];
             }
         }
@@ -219,24 +224,24 @@ var MARGIN        = 6;
     return self;
 }
 
-- uncovered:(Square)item
+- uncovered:(SquareView)item
 {
     [self start];
 
-    if(![item neighbors] && [item mine]==NO){
+    if (![item neighbors] && [item mine]==NO){
         [self uncoverRegion:item];
     }
-    else if([item mine]==NO){
+    else if ([item mine]==NO){
         uncovered++;
     }
 
     var win = ((uncovered==(64-10) && ![markField intValue]) ? YES : NO);
 
-    if([item mine]==YES || win==YES){
+    if ([item mine]==YES || win==YES){
         [self uncoverAll:item];
     }
 
-    if([item mine]==YES){
+    if ([item mine]==YES){
         [CPAlert alertWithError:@"You Lose!" ];
 
         // [CPAlert alertWithMessageText:[@"Game over." 
@@ -245,14 +250,14 @@ var MARGIN        = 6;
         //     otherButton:nil 
         //     informativeTextWithFormat: nil]];
     }
-    else if(win==YES){
+    else if (win==YES){
         [CPAlert alertWithError:@"You Win!" ];
     }
 
     return self;
 }
 
-- marked:(Square)item
+- marked:(SquareView)item
 {
     var marks = [markField intValue];
     [markField setIntValue:marks+([item marked]==YES ? -1 : 1)];
@@ -260,7 +265,7 @@ var MARGIN        = 6;
     [self start];
 
     var win = ((uncovered==(64-10) && ![markField intValue]) ? YES : NO);
-    if(win==YES){
+    if (win==YES){
         [self uncoverAll:nil];
         [CPAlert alertWithError:@"You Win!" ];
         // CPRunAlertPanel(@"Congratulations!", @"You win.",
@@ -272,7 +277,7 @@ var MARGIN        = 6;
 
 - start
 {
-    if(atStart==YES){
+    if (atStart==YES){
         startDate = [CPDate date];
         [startDate retain];
         atStart = NO;
@@ -283,7 +288,7 @@ var MARGIN        = 6;
 
 - tick
 {
-    if(atStart==NO){
+    if (atStart==NO){
         var delta = -[startDate timeIntervalSinceNow];
         var timeStr = 
             [CPString stringWithFormat:@"%06d:%02d", 

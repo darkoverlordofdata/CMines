@@ -6,3 +6,4 @@ StartupWMClass=CMines
 Comment=CMines
 Icon=/home/darko/Documents/GitHub/CMines/CMines.app/Resources/CMines.png
 Exec=/home/darko/.yarn/bin/electron /home/darko/Documents/GitHub/CMines/CMines.app
+# Exec=/home/darko/.yarn/bin/electron /home/darko/Documents/GitHub/CMines/docs

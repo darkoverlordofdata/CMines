@@ -11,7 +11,7 @@ COV_COVERED=0;
 COV_UNCOVERED=1;
 COV_UNCOVERED_BY_CLICK=2;
 
-@implementation Square : CPView
+@implementation SquareView : CPView
 {
     int row;
     int col;
