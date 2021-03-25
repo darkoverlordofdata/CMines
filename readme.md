@@ -18,11 +18,11 @@ The original GMines encapsulates post-script functions in View.m, which I can no
 This seems to have been done to demonstrate GNUstep post-script functionality rather than to show a typical way of writing a game - most games would use graphic image files such as png. 
 
 # GNUstep - working
-![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/gnustep 1.png "start")
+![Screenshot]("https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/gnustep 1.png")
 
-![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/gnustep 2.png "end")
+![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/gnustep 2.png)
 
 # Cappucinno - not so much
-![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/cappucinno 1.png "start")
+![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/cappucinno 1.png)
 
-![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/cappucinno 2.png "end")
+![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/cappucinno 2.png)
