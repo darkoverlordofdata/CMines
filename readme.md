@@ -23,6 +23,6 @@ This seems to have been done to demonstrate GNUstep post-script functionality ra
 ![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/gnustep2.png)
 
 # Cappucinno - not so much
-![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/cappucinno1.png)
+![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/cappuccino1.png)
 
-![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/cappucinno2.png)
+![Screenshot](https://github.com/darkoverlordofdata/CMines/raw/master/Screenshots/cappuccino2.png)
