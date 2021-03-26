@@ -1,5 +1,7 @@
 # Issues
 
+Porting GNUstep to Cappuccino does not go well. Much difference between the 2 frameworks. Other than that, Objective-J is just fine. But the framework needs documentation. My feeling is that it has changed to follow the Mac version of the framework, effectively creating vendor lock with Apple. Hardly a way to make cross-platform open source.
+
 
 ## CPTextField's are not displaying. 
 I tried moving CPTextField to a separate view just to test it, and I find that the setBackgroundColr message does nothing, even after setting DrawsBackground to YES. 

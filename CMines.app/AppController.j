@@ -115,7 +115,7 @@ var MARGIN        = 6;
 
     [window center];
     console.log("makeGameWindow");
-    // [window orderFront]; //Regardless];
+    [window orderFront]; //Regardless];
     console.log("makeGameWindow");
     [window makeKeyWindow];
     // [window display];
