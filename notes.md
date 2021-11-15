@@ -10,4 +10,4 @@ originally I thought this is due to intentional changes to the GNUstep api, but 
 
 ### additional setup:
 
-ln -s /home/darko/cappuccino/dist/cappuccino/Frameworks ./Frameworks
+ln -s $HOME/.config/nvm/versions/node/v14.18.1/lib/node_modules/@objj/cappuccino/dist/Release ./Frameworks

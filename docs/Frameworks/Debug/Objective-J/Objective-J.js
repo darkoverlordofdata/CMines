@@ -176,6 +176,27 @@ var ObjectiveJ = {};
                 }                k++;
             }            return undefined;
         }, configurable: true, writable: true});
+    }    if (typeof Object.assign !== 'function')
+    {
+        Object.defineProperty(Object, "assign", {value:         function assign(target, varArgs)
+        {
+            'use strict';
+            if (target === null || target === undefined)
+            {
+                throw new TypeError('Cannot convert undefined or null to object');
+            }            var to = Object(target);
+            for (var index = 1; index < arguments.length; index++)
+            {
+                var nextSource = arguments[index];
+                if (nextSource !== null && nextSource !== undefined)
+                {
+                    for (var nextKey in nextSource)
+                    {
+                        if (Object.prototype.hasOwnProperty.call(nextSource, nextKey))
+                        {
+                            to[nextKey] = nextSource[nextKey];
+                        }                    }                }            }            return to;
+        }, writable: true, configurable: true});
     }    if (!this.JSON)
     {
         JSON = {};
@@ -727,10 +748,10 @@ ul#options li{margin:0 0 0 0;padding:0 0 0 0;display:inline;} \
     var undefined;
     if (typeof window !== "undefined")
     {
-        window.setNativeTimeout = window.setTimeout;
-        window.clearNativeTimeout = window.clearTimeout;
-        window.setNativeInterval = window.setInterval;
-        window.clearNativeInterval = window.clearInterval;
+        window.setNativeTimeout = window.setTimeout || setTimeout;
+        window.clearNativeTimeout = window.clearTimeout || clearTimeout;
+        window.setNativeInterval = window.setInterval || setInterval;
+        window.clearNativeInterval = window.clearInterval || clearInterval;
     }    NO = false;
     YES = true;
     nil = null;
@@ -1630,6 +1651,19 @@ default:
         }        return string + "}";
     };
     CFDictionary.prototype.toString.displayName = "CFDictionary.prototype.toString";
+    CFDictionary.prototype.toJSObject =     function()
+    {
+        var jsObject = new Object(),
+            keys = this._keys,
+            index = 0,
+            count = this._count;
+        for (; index < count; ++index)
+        {
+            var key = keys[index];
+            jsObject[key] = this.valueForKey(key);
+        }        return jsObject;
+    };
+    CFDictionary.prototype.toJSObject.displayName = "CFDictionary.prototype.toJSObject";
     CFMutableDictionary =     function(aDictionary)
     {
         CFDictionary.apply(this, []);
@@ -3090,7 +3124,11 @@ default:
                 new StaticResource(URL, parent, NO, YES);
             }
             else if (marker === MARKER_TEXT)
+            {
                 file.write(text);
+                if (text.match(/^@STATIC;/))
+                    file.decompile();
+            }
         }
     }
     CFBundle.prototype.addEventListener =     function(anEventName, anEventListener)
@@ -3156,6 +3194,8 @@ default:
         return CFBundle.mainBundle();
     };
     var rootResources = {};
+    var currentCompilerFlags = {};
+    var currentGccCompilerFlags = "";
     function StaticResource(aURL, aParent, isDirectory, isResolved, aFilenameTranslateDictionary)
     {
         this._parent = aParent;
@@ -3182,21 +3222,10 @@ default:
     {
         return rootResources;
     };
-    function countProp(x)
-    {
-        var count = 0;
-        for (var k in x)
-        {
-            if (x.hasOwnProperty(k))
-            {
-                ++count;
-            }
-        }
-        return count;
-    }
     StaticResource.resetRootResources =     function()
     {
         rootResources = {};
+        FunctionCache = {};
     };
     StaticResource.prototype.filenameTranslateDictionary =     function()
     {
@@ -3208,7 +3237,7 @@ default:
         aResource._isResolved = YES;
         aResource._eventDispatcher.dispatchEvent({type: "resolve", staticResource: aResource});
     }
-    StaticResource.prototype.resolve =     function()
+    StaticResource.prototype.resolve =     function(dontCompile, compileIncludeFileArray)
     {
         if (this.isDirectory())
         {
@@ -3222,8 +3251,34 @@ default:
             var self = this;
             function onsuccess(anEvent)
             {
-                self._contents = anEvent.request.responseText();
-                resolveStaticResource(self);
+                var fileContents = anEvent.request.responseText(),
+                    aURL = self.URL(),
+                    extension = (aURL.pathExtension()).toLowerCase();
+                self._contents = fileContents;
+                if (fileContents.match(/^@STATIC;/))
+                {
+                    self.decompile();
+                    resolveStaticResource(self);
+                }
+                else if (!dontCompile && (extension === "j" || !extension) && !fileContents.match(/^{/))
+                {
+                    var compilerOptions = Object.assign({}, currentCompilerFlags || {}),
+                        acornOptions = compilerOptions.acornOptions;
+                    if (acornOptions)
+                        compilerOptions.acornOptions = Object.asign({}, acornOptions);
+                    if (!compilerOptions.includeFiles)
+                        compilerOptions.includeFiles = compileIncludeFileArray;
+                    self.cachedIncludeFileSearchResultsContent = {};
+                    self.cachedIncludeFileSearchResultsURL = {};
+                    compile(self, fileContents, aURL, compilerOptions, aFilenameTranslateDictionary,                     function(aResource)
+                    {
+                        resolveStaticResource(aResource);
+                    });
+                }
+                else
+                {
+                    resolveStaticResource(self);
+                }
             }
             function onfailure()
             {
@@ -3242,6 +3297,159 @@ default:
                     url = new CFURL(basePath + translatedName);
             }            new FileRequest(url, onsuccess, onfailure);
         }    };
+    var compile =     function(self, fileContents, aURL, compilerOptions, aFilenameTranslateDictionary, success)
+    {
+        var acornOptions = compilerOptions.acornOptions || (compilerOptions.acornOptions = {});
+        acornOptions.preprocessGetIncludeFile =         function(filePath, isQuoted)
+        {
+            var referenceURL = new CFURL(".", aURL),
+                includeURL = new CFURL(filePath);
+            var cacheUID = (isQuoted && referenceURL || "") + includeURL,
+                cachedResult = self.cachedIncludeFileSearchResultsContent[cacheUID];
+            if (!cachedResult)
+            {
+                var isAbsoluteURL = includeURL instanceof CFURL && includeURL.scheme(),
+                    compileWhenCompleted = NO;
+                function completed(aStaticResource)
+                {
+                    var includeString = aStaticResource && aStaticResource.contents(),
+                        lastCharacter = includeString && includeString.charCodeAt(includeString.length - 1);
+                    if (includeString == null)
+                        throw new Error("Can't load file " + includeURL);
+                    if (lastCharacter !== 10 && lastCharacter !== 13 && lastCharacter !== 8232 && lastCharacter !== 8233)
+                    {
+                        includeString += '\n';
+                    }
+                    self.cachedIncludeFileSearchResultsContent[cacheUID] = includeString;
+                    self.cachedIncludeFileSearchResultsURL[cacheUID] = aStaticResource.URL();
+                    if (compileWhenCompleted)
+                        compile(self, fileContents, aURL, compilerOptions, aFilenameTranslateDictionary, success);
+                }
+                if (isQuoted || isAbsoluteURL)
+                {
+                    var translateDictionary;
+                    if (!isAbsoluteURL)
+                    {
+                        includeURL = new CFURL(includeURL, new CFURL(aFilenameTranslateDictionary && aFilenameTranslateDictionary[aURL.lastPathComponent()] || ".", referenceURL));
+                    }                    StaticResource.resolveResourceAtURL(includeURL, NO, completed, null, true);
+                }                else
+                    StaticResource.resolveResourceAtURLSearchingIncludeURLs(includeURL, completed);
+                cachedResult = self.cachedIncludeFileSearchResultsContent[cacheUID];
+            }            if (cachedResult)
+            {
+                return {include: cachedResult, sourceFile: self.cachedIncludeFileSearchResultsURL[cacheUID]};
+            }            else
+            {
+                compileWhenCompleted = YES;
+                return null;
+            }        };
+        var includeFiles = compilerOptions && compilerOptions.includeFiles,
+            allPreIncludesResolved = true;
+        acornOptions.preIncludeFiles = [];
+        if (includeFiles)
+            for (var i = 0, size = includeFiles.length; i < size; i++)
+            {
+                var includeFileUrl = makeAbsoluteURL(includeFiles[i]);
+                try {
+                    var aResource = StaticResource.resourceAtURL(makeAbsoluteURL(includeFileUrl));
+                }
+                catch(e) {
+                    StaticResource.resolveResourcesAtURLs(includeFiles.map(                    function(u)
+                    {
+                        return makeAbsoluteURL(u);
+                    }),                     function()
+                    {
+                        compile(self, fileContents, aURL, compilerOptions, aFilenameTranslateDictionary, success);
+                    });
+                    return;
+                }
+                if (aResource)
+                {
+                    if (aResource.isNotFound())
+                    {
+                        throw new Error("--include file not found " + includeUrl);
+                    }                    var includeString = aResource.contents();
+                    var lastCharacter = includeString.charCodeAt(includeString.length - 1);
+                    if (lastCharacter !== 10 && lastCharacter !== 13 && lastCharacter !== 8232 && lastCharacter !== 8233)
+                        includeString += '\n';
+                    acornOptions.preIncludeFiles.push({include: includeString, sourceFile: includeFileUrl.toString()});
+                }            }        var compiler = (exports.ObjJCompiler || ObjJCompiler).compileFileDependencies(fileContents, aURL, compilerOptions);
+        var warningsAndErrors = compiler.warningsAndErrors;
+        if (warningsAndErrors && warningsAndErrors.length === 1 && warningsAndErrors[0].message.indexOf("file not found") > -1)
+            return;
+        if (Executable.printWarningsAndErrors(compiler, exports.messageOutputFormatInXML))
+        {
+            throw "Compilation error";
+        }        var fileDependencies = compiler.dependencies.map(        function(aFileDep)
+        {
+            return new FileDependency(new CFURL(aFileDep.url), aFileDep.isLocal);
+        });
+        self._fileDependencies = fileDependencies;
+        self._compiler = compiler;
+        success(self);
+    };
+    StaticResource.prototype.decompile =     function()
+    {
+        var content = this.contents(),
+            aURL = this.URL(),
+            stream = new MarkedStream(content);
+        var marker = NULL,
+            code = "",
+            dependencies = [],
+            sourceMap;
+        while (marker = stream.getMarker())
+        {
+            var text = stream.getString();
+            if (marker === MARKER_TEXT)
+                code += text;
+            else if (marker === MARKER_IMPORT_STD)
+                dependencies.push(new FileDependency(new CFURL(text), NO));
+            else if (marker === MARKER_IMPORT_LOCAL)
+                dependencies.push(new FileDependency(new CFURL(text), YES));
+            else if (marker === MARKER_SOURCE_MAP)
+                sourceMap = text;
+        }        this._fileDependencies = dependencies;
+        this._function = StaticResource._lookupCachedFunction(aURL);
+        this._sourceMap = sourceMap;
+        this._contents = code;
+    };
+    StaticResource.setCurrentGccCompilerFlags =     function(compilerFlags)
+    {
+        if (currentGccCompilerFlags === compilerFlags)
+            return;
+        currentGccCompilerFlags = compilerFlags;
+        var objjcFlags = (exports.ObjJCompiler || ObjJCompiler).parseGccCompilerFlags(compilerFlags);
+        StaticResource.setCurrentCompilerFlags(objjcFlags);
+    };
+    StaticResource.currentGccCompilerFlags =     function(compilerFlags)
+    {
+        return currentGccCompilerFlags;
+    };
+    StaticResource.setCurrentCompilerFlags =     function(compilerFlags)
+    {
+        currentCompilerFlags = compilerFlags;
+        if (currentCompilerFlags.transformNamedFunctionDeclarationToAssignment == null)
+            currentCompilerFlags.transformNamedFunctionDeclarationToAssignment = true;
+        if (currentCompilerFlags.sourceMap == null)
+            currentCompilerFlags.sourceMap = false;
+        if (currentCompilerFlags.inlineMsgSendFunctions == null)
+            currentCompilerFlags.inlineMsgSendFunctions = false;
+    };
+    StaticResource.currentCompilerFlags =     function(compilerFlags)
+    {
+        return currentCompilerFlags;
+    };
+    var FunctionCache = {};
+    StaticResource._cacheFunction =     function(aURL, fn)
+    {
+        aURL = typeof aURL === "string" ? aURL : aURL.absoluteString();
+        FunctionCache[aURL] = fn;
+    };
+    StaticResource._lookupCachedFunction =     function(aURL)
+    {
+        aURL = typeof aURL === "string" ? aURL : aURL.absoluteString();
+        return FunctionCache[aURL];
+    };
     StaticResource.prototype.name =     function()
     {
         return this._name;
@@ -3317,16 +3525,16 @@ default:
                     aCallback(allResources);
             });
         }    };
-    StaticResource.resolveResourceAtURL =     function(aURL, isDirectory, aCallback, aFilenameTranslateDictionary)
+    StaticResource.resolveResourceAtURL =     function(aURL, isDirectory, aCallback, aFilenameTranslateDictionary, dontCompile)
     {
         aURL = (makeAbsoluteURL(aURL)).absoluteURL();
-        resolveResourceComponents(rootResourceForAbsoluteURL(aURL), isDirectory, aURL.pathComponents(), 0, aCallback, aFilenameTranslateDictionary);
+        resolveResourceComponents(rootResourceForAbsoluteURL(aURL), isDirectory, aURL.pathComponents(), 0, aCallback, aFilenameTranslateDictionary, null, dontCompile);
     };
     StaticResource.prototype.resolveResourceAtURL =     function(aURL, isDirectory, aCallback)
     {
         StaticResource.resolveResourceAtURL((new CFURL(aURL, this.URL())).absoluteURL(), isDirectory, aCallback);
     };
-    function resolveResourceComponents(aResource, isDirectory, components, index, aCallback, aFilenameTranslateDictionary)
+    function resolveResourceComponents(aResource, isDirectory, components, index, aCallback, aFilenameTranslateDictionary, compileIncludeFileArray, dontCompile)
     {
         var count = components.length;
         for (; index < count; ++index)
@@ -3335,13 +3543,35 @@ default:
                 child = hasOwnProperty.call(aResource._children, name) && aResource._children[name];
             if (!child)
             {
-                child = new StaticResource(new CFURL(name, aResource.URL()), aResource, index + 1 < count || isDirectory, NO, aFilenameTranslateDictionary);
-                child.resolve();
+                var translationDictionary = nil;
+                if (aFilenameTranslateDictionary == null)
+                {
+                    var bundle = new CFBundle(aResource.URL());
+                    if (bundle != null)
+                    {
+                        var bundleTranslationDictionary = bundle.valueForInfoDictionaryKey("CPFileTranslationDictionary");
+                        if (bundleTranslationDictionary != null)
+                        {
+                            translationDictionary = bundleTranslationDictionary.toJSObject();
+                        }
+                        var bundleIncludeFileArray = bundle.valueForInfoDictionaryKey("CPCompileIncludeFileArray");
+                        if (bundleIncludeFileArray != null)
+                        {
+                            compileIncludeFileArray = bundleIncludeFileArray.map(                            function(includeFilePath)
+                            {
+                                return new CFURL(includeFilePath, aResource.URL());
+                            });
+                        }
+                    }
+                }
+                var u = new CFURL(name, aResource.URL());
+                child = new StaticResource(u, aResource, index + 1 < count || isDirectory, NO, translationDictionary || aFilenameTranslateDictionary);
+                child.resolve(dontCompile, compileIncludeFileArray);
             }
             if (!child.isResolved())
                 return child.addEventListener("resolve",                 function()
                 {
-                    resolveResourceComponents(aResource, isDirectory, components, index, aCallback, aFilenameTranslateDictionary);
+                    resolveResourceComponents(aResource, isDirectory, components, index, aCallback, aFilenameTranslateDictionary, compileIncludeFileArray, dontCompile);
                 });
             if (child.isNotFound())
                 return aCallback(null, new Error("File not found: " + components.join("/")));
@@ -3422,6 +3652,7 @@ default:
             includeURLs[count] = (new CFURL(includeURLs[count])).asDirectoryPathURL();
         return includeURLs;
     };
+    StaticResource.setCurrentCompilerFlags({});
     var TOKEN_ACCESSORS = "accessors",
         TOKEN_CLASS = "class",
         TOKEN_END = "end",
@@ -13104,7 +13335,6 @@ default:
     var ExecutableUnloadedFileDependencies = 0,
         ExecutableLoadingFileDependencies = 1,
         ExecutableLoadedFileDependencies = 2,
-        ExecutableCantStartLoadYetFileDependencies = 3,
         AnonymousExecutableCount = 0;
     function Executable(aCode, fileDependencies, aURL, aFunction, aCompiler, aFilenameTranslateDictionary, sourceMap)
     {
@@ -13118,12 +13348,7 @@ default:
         this._filenameTranslateDictionary = aFilenameTranslateDictionary;
         if (sourceMap)
             this._base64EncodedSourceMap = sourceMap;
-        if (!fileDependencies)
-        {
-            this._fileDependencyStatus = ExecutableCantStartLoadYetFileDependencies;
-            this._fileDependencyCallbacks = [];
-        }
-        else if (fileDependencies.length)
+        if (fileDependencies.length)
         {
             this._fileDependencyStatus = ExecutableUnloadedFileDependencies;
             this._fileDependencyCallbacks = [];
@@ -13175,7 +13400,7 @@ default:
                 this.fileExecuter()(URL, isQuoted);
             }            this._compiler.popImport();
             this.setCode(this._compiler.compilePass2(), this._compiler.map());
-            if (FileExecutable.printWarningsAndErrors(this._compiler, exports.messageOutputFormatInXML))
+            if (Executable.printWarningsAndErrors(this._compiler, exports.messageOutputFormatInXML))
                 throw "Compilation error";
             this._compiler = null;
         }        var oldContextBundle = CONTEXT_BUNDLE;
@@ -13242,21 +13467,16 @@ default:
         }        if (status === ExecutableUnloadedFileDependencies)
         {
             if (fileDependencyLoadCount)
-                throw "Can't load";
-            loadFileDependenciesForExecutable(this);
+            {
+                throw "Can't load: " + (this.URL()).absoluteURL();
+            }            loadFileDependenciesForExecutable(this);
         }    };
     Executable.prototype.loadFileDependencies.displayName = "Executable.prototype.loadFileDependencies";
-    Executable.prototype.setExecutableUnloadedFileDependencies =     function()
+    Executable.prototype.hasExecutableUnloadedFileDependencies =     function()
     {
-        if (this._fileDependencyStatus === ExecutableCantStartLoadYetFileDependencies)
-            this._fileDependencyStatus = ExecutableUnloadedFileDependencies;
+        return this._fileDependencyStatus === ExecutableUnloadedFileDependencies;
     };
-    Executable.prototype.setExecutableUnloadedFileDependencies.displayName = "Executable.prototype.setExecutableUnloadedFileDependencies";
-    Executable.prototype.isExecutableCantStartLoadYetFileDependencies =     function()
-    {
-        return this._fileDependencyStatus === ExecutableCantStartLoadYetFileDependencies;
-    };
-    Executable.prototype.setExecutableUnloadedFileDependencies.displayName = "Executable.prototype.setExecutableUnloadedFileDependencies";
+    Executable.prototype.hasExecutableUnloadedFileDependencies.displayName = "Executable.prototype.hasExecutableUnloadedFileDependencies";
     function loadFileDependenciesForExecutable(anExecutable)
     {
         fileDependencyExecutables.push(anExecutable);
@@ -13382,18 +13602,6 @@ default:
     Executable.fileImporterForURL.displayName = "Executable.fileImporterForURL";
     var cachedFileExecutableSearchers = {},
         cachedFileExecutableSearchResults = {};
-    function countProp(x)
-    {
-        var count = 0;
-        for (var k in x)
-        {
-            if (x.hasOwnProperty(k))
-            {
-                ++count;
-            }
-        }
-        return count;
-    }
     Executable.resetCachedFileExecutableSearchers =     function()
     {
         cachedFileExecutableSearchers = {};
@@ -13438,6 +13646,18 @@ default:
         }        return cachedFileExecutableSearcher;
     };
     Executable.fileExecutableSearcherForURL.displayName = "Executable.fileExecutableSearcherForURL";
+    Executable.printWarningsAndErrors =     function(compiler, printXML)
+    {
+        var warnings = [],
+            anyErrors = false;
+        for (var i = 0; i < compiler.warningsAndErrors.length; i++)
+        {
+            var warning = compiler.warningsAndErrors[i],
+                message = compiler.prettifyMessage(warning);
+            anyErrors = anyErrors || warning.messageType === "ERROR";
+            console.log(message);
+        }        return anyErrors;
+    };
     var SURROGATE_HIGH_START = 0xD800;
     var SURROGATE_HIGH_END = 0xDBFF;
     var SURROGATE_LOW_START = 0xDC00;
@@ -13513,9 +13733,7 @@ default:
     }
     UTF16ToUTF8.displayName = "UTF16ToUTF8";
     var FileExecutablesForURLStrings = {};
-    var currentCompilerFlags = {};
-    var currentGccCompilerFlags = "";
-    function FileExecutable(aURL, aFilenameTranslateDictionary)
+    function FileExecutable(aURL, aFilenameTranslateDictionary, success)
     {
         aURL = makeAbsoluteURL(aURL);
         var URLString = aURL.absoluteString(),
@@ -13523,128 +13741,18 @@ default:
         if (existingFileExecutable)
             return existingFileExecutable;
         FileExecutablesForURLStrings[URLString] = this;
-        var fileContents = (StaticResource.resourceAtURL(aURL)).contents(),
-            executable = NULL,
-            extension = (aURL.pathExtension()).toLowerCase();
+        var aResource = StaticResource.resourceAtURL(aURL),
+            fileContents = aResource.contents(),
+            executable = NULL;
         this._hasExecuted = NO;
-        if (fileContents.match(/^@STATIC;/))
-            executable = decompile(fileContents, aURL);
-        else if ((extension === "j" || !extension) && !fileContents.match(/^{/))
-        {
-            var compilerOptions = currentCompilerFlags || {};
-            this.cachedIncludeFileSearchResultsContent = {};
-            this.cachedIncludeFileSearchResultsURL = {};
-            compile(this, fileContents, aURL, compilerOptions, aFilenameTranslateDictionary);
-            return;
-        }
-        else
-            executable = new Executable(fileContents, [], aURL);
+        executable = new Executable(fileContents, aResource._fileDependencies || [], aURL, aResource._function, aResource._compiler, aResource._compiler ? aFilenameTranslateDictionary : null, aResource._sourceMap);
         Executable.apply(this, [executable.code(), executable.fileDependencies(), aURL, executable._function, executable._compiler, aFilenameTranslateDictionary]);
     }
     exports.FileExecutable = FileExecutable;
     FileExecutable.prototype = new Executable();
-    var compile =     function(self, fileContents, aURL, compilerOptions, aFilenameTranslateDictionary)
-    {
-        var acornOptions = compilerOptions.acornOptions || (compilerOptions.acornOptions = {});
-        acornOptions.preprocessGetIncludeFile =         function(filePath, isQuoted)
-        {
-            var referenceURL = new CFURL(".", aURL),
-                includeURL = new CFURL(filePath);
-            var cacheUID = (isQuoted && referenceURL || "") + includeURL,
-                cachedResult = self.cachedIncludeFileSearchResultsContent[cacheUID];
-            if (!cachedResult)
-            {
-                var isAbsoluteURL = includeURL instanceof CFURL && includeURL.scheme(),
-                    compileWhenCompleted = NO;
-                function completed(aStaticResource)
-                {
-                    var includeString = aStaticResource && aStaticResource.contents(),
-                        lastCharacter = includeString && includeString.charCodeAt(includeString.length - 1);
-                    if (includeString == null)
-                        throw new Error("Can't load file " + includeURL);
-                    if (lastCharacter !== 10 && lastCharacter !== 13 && lastCharacter !== 8232 && lastCharacter !== 8233)
-                    {
-                        includeString += '\n';
-                    }
-                    self.cachedIncludeFileSearchResultsContent[cacheUID] = includeString;
-                    self.cachedIncludeFileSearchResultsURL[cacheUID] = aStaticResource.URL();
-                    if (compileWhenCompleted)
-                        compile(self, fileContents, aURL, compilerOptions, aFilenameTranslateDictionary);
-                }
-                if (isQuoted || isAbsoluteURL)
-                {
-                    if (!isAbsoluteURL)
-                        includeURL = new CFURL(includeURL, new CFURL(aFilenameTranslateDictionary[aURL.lastPathComponent()] || ".", referenceURL));
-                    StaticResource.resolveResourceAtURL(includeURL, NO, completed);
-                }                else
-                    StaticResource.resolveResourceAtURLSearchingIncludeURLs(includeURL, completed);
-                cachedResult = self.cachedIncludeFileSearchResultsContent[cacheUID];
-            }            if (cachedResult)
-            {
-                return {include: cachedResult, sourceFile: self.cachedIncludeFileSearchResultsURL[cacheUID]};
-            }            else
-            {
-                compileWhenCompleted = YES;
-                return null;
-            }        };
-        var includeFiles = currentCompilerFlags && currentCompilerFlags.includeFiles,
-            allPreIncludesResolved = true;
-        acornOptions.preIncludeFiles = [];
-        if (includeFiles)
-            for (var i = 0, size = includeFiles.length; i < size; i++)
-            {
-                var includeFileUrl = makeAbsoluteURL(includeFiles[i]);
-                try {
-                    var aResource = StaticResource.resourceAtURL(makeAbsoluteURL(includeFileUrl));
-                }
-                catch(e) {
-                    StaticResource.resolveResourcesAtURLs(includeFiles.map(                    function(u)
-                    {
-                        return makeAbsoluteURL(u);
-                    }),                     function()
-                    {
-                        compile(self, fileContents, aURL, compilerOptions, aFilenameTranslateDictionary);
-                    });
-                    allPreIncludesResolved = false;
-                    break;
-                }
-                if (aResource)
-                {
-                    if (aResource.isNotFound())
-                    {
-                        throw new Error("--include file not found " + includeUrl);
-                    }                    var includeString = aResource.contents();
-                    var lastCharacter = includeString.charCodeAt(includeString.length - 1);
-                    if (lastCharacter !== 10 && lastCharacter !== 13 && lastCharacter !== 8232 && lastCharacter !== 8233)
-                        includeString += '\n';
-                    acornOptions.preIncludeFiles.push({include: includeString, sourceFile: includeFileUrl.toString()});
-                }            }        if (allPreIncludesResolved)
-        {
-            var compiler = (exports.ObjJCompiler || ObjJCompiler).compileFileDependencies(fileContents, aURL, compilerOptions);
-            var warningsAndErrors = compiler.warningsAndErrors;
-            if (warningsAndErrors && warningsAndErrors.length === 1 && warningsAndErrors[0].message.indexOf("file not found") > -1)
-                return;
-            if (FileExecutable.printWarningsAndErrors(compiler, exports.messageOutputFormatInXML))
-                throw "Compilation error";
-            var fileDependencies = compiler.dependencies.map(            function(aFileDep)
-            {
-                return new FileDependency(new CFURL(aFileDep.url), aFileDep.isLocal);
-            });
-        }        if (self.isExecutableCantStartLoadYetFileDependencies())
-        {
-            self.setFileDependencies(fileDependencies);
-            self.setExecutableUnloadedFileDependencies();
-            self.loadFileDependencies();
-        }        else if (self._fileDependencyStatus == null)
-        {
-            executable = new Executable(compiler && compiler.jsBuffer ? compiler.jsBuffer.toString() : null, fileDependencies, aURL, null, compiler);
-            Executable.apply(self, [executable.code(), executable.fileDependencies(), aURL, executable._function, executable._compiler, aFilenameTranslateDictionary]);
-        }    };
-    compile.displayName = "compile";
     FileExecutable.resetFileExecutables =     function()
     {
         FileExecutablesForURLStrings = {};
-        FunctionCache = {};
     };
     FileExecutable.prototype.execute =     function(shouldForce)
     {
@@ -13659,80 +13767,6 @@ default:
         return this._hasExecuted;
     };
     FileExecutable.prototype.hasExecuted.displayName = "FileExecutable.prototype.hasExecuted";
-    function decompile(aString, aURL)
-    {
-        var stream = new MarkedStream(aString);
-        var marker = NULL,
-            code = "",
-            dependencies = [],
-            sourceMap;
-        while (marker = stream.getMarker())
-        {
-            var text = stream.getString();
-            if (marker === MARKER_TEXT)
-                code += text;
-            else if (marker === MARKER_IMPORT_STD)
-                dependencies.push(new FileDependency(new CFURL(text), NO));
-            else if (marker === MARKER_IMPORT_LOCAL)
-                dependencies.push(new FileDependency(new CFURL(text), YES));
-            else if (marker === MARKER_SOURCE_MAP)
-                sourceMap = text;
-        }
-        var fn = FileExecutable._lookupCachedFunction(aURL);
-        if (fn)
-            return new Executable(code, dependencies, aURL, fn, null, null, sourceMap);
-        return new Executable(code, dependencies, aURL, null, null, null, sourceMap);
-    }
-    var FunctionCache = {};
-    FileExecutable._cacheFunction =     function(aURL, fn)
-    {
-        aURL = typeof aURL === "string" ? aURL : aURL.absoluteString();
-        FunctionCache[aURL] = fn;
-    };
-    FileExecutable._lookupCachedFunction =     function(aURL)
-    {
-        aURL = typeof aURL === "string" ? aURL : aURL.absoluteString();
-        return FunctionCache[aURL];
-    };
-    FileExecutable.setCurrentGccCompilerFlags =     function(compilerFlags)
-    {
-        if (currentGccCompilerFlags === compilerFlags)
-            return;
-        currentGccCompilerFlags = compilerFlags;
-        var objjcFlags = (exports.ObjJCompiler || ObjJCompiler).parseGccCompilerFlags(compilerFlags);
-        FileExecutable.setCurrentCompilerFlags(objjcFlags);
-    };
-    FileExecutable.currentGccCompilerFlags =     function(compilerFlags)
-    {
-        return currentGccCompilerFlags;
-    };
-    FileExecutable.setCurrentCompilerFlags =     function(compilerFlags)
-    {
-        currentCompilerFlags = compilerFlags;
-        if (currentCompilerFlags.transformNamedFunctionDeclarationToAssignment == null)
-            currentCompilerFlags.transformNamedFunctionDeclarationToAssignment = true;
-        if (currentCompilerFlags.sourceMap == null)
-            currentCompilerFlags.sourceMap = false;
-        if (currentCompilerFlags.inlineMsgSendFunctions == null)
-            currentCompilerFlags.inlineMsgSendFunctions = false;
-    };
-    FileExecutable.currentCompilerFlags =     function(compilerFlags)
-    {
-        return currentCompilerFlags;
-    };
-    FileExecutable.printWarningsAndErrors =     function(compiler, printXML)
-    {
-        var warnings = [],
-            anyErrors = false;
-        for (var i = 0; i < compiler.warningsAndErrors.length; i++)
-        {
-            var warning = compiler.warningsAndErrors[i],
-                message = compiler.prettifyMessage(warning);
-            anyErrors = anyErrors || warning.messageType === "ERROR";
-            console.log(message);
-        }        return anyErrors;
-    };
-    FileExecutable.setCurrentCompilerFlags({});
     var CLS_CLASS = 0x1,
         CLS_META = 0x2,
         CLS_INITIALIZED = 0x4,
@@ -13771,7 +13805,7 @@ default:
         };
         this.method_dtable = this.method_store.prototype;
         this.protocol_list = [];
-        eval("this.allocator = function " + (displayName || "OBJJ_OBJECT").replace(/\W/g, "_") + "() { }");
+        eval("this.allocator = function " + (displayName ? displayName.replace(/^0|\W/g, "_") : "OBJJ_OBJECT") + "() { }");
         this._UID = -1;
     };
     objj_protocol =     function(aName)
@@ -14665,7 +14699,8 @@ default:
         var flags = {};
         for (var i = 0; i < OBJJ_COMPILER_FLAGS.length; i++)
         {
-            switch(OBJJ_COMPILER_FLAGS[i]) {
+            var aFlag = OBJJ_COMPILER_FLAGS[i];
+            switch(aFlag) {
                 case "IncludeDebugSymbols":
                     flags.includeMethodFunctionNames = true;
                     break;
@@ -14679,8 +14714,17 @@ default:
                 case "SourceMap":
                     flags.sourceMap = true;
                     break;
+                case "SourceMapIncludeSource":
+                    flags.sourceMapIncludeSource = true;
+                    break;
+default:
+                    if (aFlag.indexOf("-D") === 0)
+                    {
+                        var macroDefinition = aFlag.substring(2);
+                        (flags.macros || (flags.macros = [])).push(macroDefinition);
+                    }                    break;
             }
-        }        FileExecutable.setCurrentCompilerFlags(flags);
+        }        StaticResource.setCurrentCompilerFlags(flags);
     }    var mainFileURL = new CFURL(window.OBJJ_MAIN_FILE || "main.j"),
         mainBundleURL = (new CFURL(".", new CFURL(mainFileURL, pageURL))).absoluteURL(),
         assumedResolvedURL = (new CFURL("..", mainBundleURL)).absoluteURL();
