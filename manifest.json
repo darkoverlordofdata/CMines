@@ -1,0 +1,37 @@
+{
+    "version": "1.0",
+    "short_name": "CMines",
+    "name": "Minesweeper",
+    "description": "Minesweeper in Cappuccino",
+    "developer": {
+      "name": "darkoverlordofdata",
+      "url": "https://darkoverlordofdata.com/"
+    },
+    "default_locale": "en",
+  
+    "icons": [
+      {
+        "src": "Resources/icon96.png",
+        "sizes": "96x96",
+        "type": "image/png"
+      },
+      {
+        "src": "Resources/icon144.png",
+        "sizes": "144x144",
+        "type": "image/png"
+      },
+      {
+        "src": "Resources/icon192.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      }
+    ],
+    "start_url": "index.html",
+    "display": "standalone",
+    "fullscreen": "true",
+    "orientation": "portrait",
+    "installs_allowed_from": [
+      "*"
+    ]
+  
+  }

@@ -2,7 +2,8 @@
 @import <AppKit/AppKit.j>
 @import "SquareView.j"
 
-var DIMENSION    = 24;
+// var DIMENSION    = 24;
+var DIMENSION    = 40;
 var SEPARATOR    = 10;
 var MARGIN        = 6;
 
@@ -39,11 +40,15 @@ var MARGIN        = 6;
     [self makeGameWindow];
     [self newGame:nil];
 
+    // [CPMenu setMenuBarVisible:YES];
+
 }
 
 - makeGameWindow
 {
-    var m = CPTitledWindowMask;
+    // var m = CPTitledWindowMask;
+
+    var m = CPBorderlessBridgeWindowMask;
 
     var view  = [[CPView alloc] 
                 initWithFrame:
@@ -67,6 +72,8 @@ var MARGIN        = 6;
             initWithFrame:
                 CPMakeRect(0, DIMENSION*8+SEPARATOR,
                            3*DIMENSION, DIMENSION)];
+    
+    [markField setDrawsBackground:YES];
     [markField setEditable:NO];
     [markField setSelectable:NO];
     [markField setBackgroundColor:[CPColor blackColor]];
@@ -96,6 +103,8 @@ var MARGIN        = 6;
 
     var frame = [CPWindow frameRectForContentRect:[boardBox frame] styleMask:m];
 
+    frame.size.height += 30;
+
     window = [[CPWindow alloc] initWithContentRect:frame styleMask:m];
 
     [window setMinSize:frame.size];
@@ -110,15 +119,9 @@ var MARGIN        = 6;
     
     // several Unrecognized selector errors:
 
-    // [window setReleasedWhenClosed:YES];
-
-
     [window center];
     console.log("makeGameWindow");
-    [window orderFront]; //Regardless];
-    console.log("makeGameWindow");
     [window makeKeyWindow];
-    // [window display];
 
 
     return self;
@@ -242,6 +245,7 @@ var MARGIN        = 6;
     }
 
     if ([item mine]==YES){
+        alert("You Lose!");
         [CPAlert alertWithError:@"You Lose!" ];
 
         // [CPAlert alertWithMessageText:[@"Game over." 
@@ -251,6 +255,7 @@ var MARGIN        = 6;
         //     informativeTextWithFormat: nil]];
     }
     else if (win==YES){
+        alert("You Win!");
         [CPAlert alertWithError:@"You Win!" ];
     }
 

@@ -1,0 +1,46 @@
+/*
+ * AppController.j
+ * NewApplication
+ *
+ * Created by You on September 10, 2018.
+ * Copyright 2018, Your Company All rights reserved.
+ */
+
+@import <Foundation/Foundation.j>
+@import <AppKit/AppKit.j>
+
+@implementation AppController : CPObject
+{
+}
+
+- (void)applicationDidFinishLaunching:(CPNotification)aNotification
+{
+    var theWindow = [[CPWindow alloc] initWithContentRect:CGRectMakeZero() styleMask:CPBorderlessBridgeWindowMask],
+        contentView = [theWindow contentView];
+
+    var label = [[CPTextField alloc] initWithFrame:CGRectMakeZero()];
+
+    [label setStringValue:@"Hello World!"];
+    [label setFont:[CPFont boldSystemFontOfSize:24.0]];
+
+    [label sizeToFit];
+
+    [label setAutoresizingMask:CPViewMinXMargin | CPViewMaxXMargin | CPViewMinYMargin | CPViewMaxYMargin];
+    [label setCenter:[contentView center]];
+    [label setTextColor:[CPColor blackColor]];
+
+    var highlightView = [[CPView alloc] initWithFrame:CGRectCreateCopy([label bounds])];
+    [highlightView setCenter:[contentView center]];
+    [highlightView setBackgroundColor:[CPColor redColor]];
+    
+    [contentView addSubview:highlightView];
+    [contentView addSubview:label];
+
+
+    [theWindow orderFront:self];
+
+    // Uncomment the following line to turn on the standard menu bar.
+    //[CPMenu setMenuBarVisible:YES];
+}
+
+@end

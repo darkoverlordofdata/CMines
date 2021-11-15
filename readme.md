@@ -1,21 +1,11 @@
 # CMines
 
-port of GNUstep demo GMines, using Cappuccino on web or electron
-
-```
-cd CMines.app
-(yarn or yarn global install electron)
-npm start
-```
+port of GNUstep demo GMines, using Cappuccino 
 
 
-## proposed changes
+This is a reboot of the project. It will have to be rewritten, due to gaps in the cappuccino api(see notes.md)
 
-* use png files instead of drawn images
-* or change to CPBezierPath + CoreGraphics
+I'm following the techniques in the LightsOut demo, which uses CALayer and *.png images - a more modern approach than using post script, so in the long run, this is ok.
 
-The original GMines encapsulates post-script functions in View.m, which I can not find any documentation for.
-
-This seems to have been done to demonstrate GNUstep post-script functionality rather than to show a typical way of writing a game - most games would use graphic image files such as png. 
 
 

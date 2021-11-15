@@ -2,7 +2,8 @@
 @import <AppKit/AppKit.j>
 
 
-var DIMENSION    = 24;
+// var DIMENSION    = 24;
+var DIMENSION    = 40;
 var SEPARATOR    = 10;
 var MARGIN        = 6;
 
@@ -23,12 +24,42 @@ COV_UNCOVERED_BY_CLICK=2;
 
     id con;
     CPBezierPath path;
+    CPImage image_0;
+    CPImage image_1;
+    CPImage image_2;
+    CPImage image_3;
+    CPImage image_4;
+    CPImage image_5;
+    CPImage image_6;
+    CPImage image_7;
+    CPImage image_8;
+    CPImage image_flag;
+    CPImage image_hidden;
+    CPImage image_mine;
+    CPImage image_misplaced;
+    CPImage image_question;
 }
 
 
 - initAtPoint:(CPPoint)aPoint row:(int)rval col:(int)cval
    controller:(id)theCon
 {
+    image_0 = [[CPImage alloc] initWithContentsOfFile:"Resources/0.png" size:CPSizeMake(40, 40)];
+    image_1 = [[CPImage alloc] initWithContentsOfFile:"Resources/1.png" size:CPSizeMake(40, 40)];
+    image_2 = [[CPImage alloc] initWithContentsOfFile:"Resources/2.png" size:CPSizeMake(40, 40)];
+    image_3 = [[CPImage alloc] initWithContentsOfFile:"Resources/3.png" size:CPSizeMake(40, 40)];
+    image_4 = [[CPImage alloc] initWithContentsOfFile:"Resources/4.png" size:CPSizeMake(40, 40)];
+    image_5 = [[CPImage alloc] initWithContentsOfFile:"Resources/5.png" size:CPSizeMake(40, 40)];
+    image_6 = [[CPImage alloc] initWithContentsOfFile:"Resources/6.png" size:CPSizeMake(40, 40)];
+    image_7 = [[CPImage alloc] initWithContentsOfFile:"Resources/7.png" size:CPSizeMake(40, 40)];
+    image_8 = [[CPImage alloc] initWithContentsOfFile:"Resources/8.png" size:CPSizeMake(40, 40)];
+    image_flag = [[CPImage alloc] initWithContentsOfFile:"Resources/flag.png" size:CPSizeMake(40, 40)];
+    image_hidden = [[CPImage alloc] initWithContentsOfFile:"Resources/hidden.png" size:CPSizeMake(40, 40)];
+    image_mine = [[CPImage alloc] initWithContentsOfFile:"Resources/mine.png" size:CPSizeMake(40, 40)];
+    image_misplaced = [[CPImage alloc] initWithContentsOfFile:"Resources/misplaced.png" size:CPSizeMake(40, 40)];
+    image_question = [[CPImage alloc] initWithContentsOfFile:"Resources/question.png" size:CPSizeMake(40, 40)];
+
+
     var frame = CPMakeRect(0, 0, 0, 0);
 
     frame.origin = aPoint;
